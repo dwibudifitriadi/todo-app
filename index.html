@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo App - Masterpiece</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📝 Todo List</h1>
+            <p class="subtitle">Organize your life with style</p>
+        </header>
+
+        <div class="todo-input-section">
+            <input 
+                type="text" 
+                id="todoInput" 
+                class="todo-input" 
+                placeholder="What needs to be done?"
+                autocomplete="off"
+            >
+            <button id="addBtn" class="add-btn">
+                <span class="add-icon">+</span>
+            </button>
+        </div>
+
+        <div class="filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="active">Active</button>
+            <button class="filter-btn" data-filter="completed">Completed</button>
+        </div>
+
+        <ul id="todoList" class="todo-list"></ul>
+
+        <div class="footer">
+            <span id="itemCount" class="item-count">0 items left</span>
+            <button id="clearCompleted" class="clear-completed">Clear completed</button>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        <p>Made with ❤️ - A Masterpiece Todo App</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
