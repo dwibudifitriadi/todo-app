@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "build": "tailwindcss -i ./src/input.css -o ./assets/css/style.css --minify",
+    "watch": "tailwindcss -i ./src/input.css -o ./assets/css/style.css --watch"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.18",
+    "chart.js": "^4.5.1",
+    "tailwindcss": "^4.1.18"
+  }
+}
