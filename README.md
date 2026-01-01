@@ -1,647 +1,243 @@
 # Todo List API Documentation
 
-## Overview
-Dokumentasi lengkap untuk semua endpoint API Todo List Application. API ini memerlukan autentikasi pengguna dan menggunakan CSRF token untuk operasi yang mengubah data.
-
----
-
-## Authentication
-
-Semua endpoint API memerlukan:
-- **User Session**: Pengguna harus sudah login
-- **CSRF Token**: Untuk request POST, PUT, DELETE
-
-Jika autentikasi gagal:
-```json
-{
-  "success": false,
-  "message": "Unauthorized"
-}
-```
-(HTTP Status: 401)
-
----
+Dokumentasi lengkap seluruh endpoint di folder `/api`. Semua respons berbentuk JSON. Operasi penulisan data membutuhkan user yang sudah login (session PHP) dan token CSRF yang valid.
 
 ## Base URL
-```
-http://localhost/todo-list-app/api/
-```
+Gunakan base: `https://www.dwibudifitriadi.me/api/` (encode spasi pada path `UAS PW`).
 
----
+## Konvensi Umum
+- Autentikasi: wajib session login; jika tidak akan mengembalikan 401.
+- CSRF: semua `POST` memerlukan field `csrf_token` yang valid.
+- Konten: kirim parameter sebagai `application/x-www-form-urlencoded` atau `multipart/form-data`.
+- Struktur sukses: biasanya `{ "success": true, ... }`.
+- Struktur error: `{ "success": false, "message": "..." }` dengan status 4xx/5xx.
 
-## Endpoints
+## HTTP Status
+| Kode | Arti |
+| ---- | ---- |
+| 200 | OK |
+| 400 | Bad Request (parameter kurang/invalid) |
+| 401 | Unauthorized (belum login) |
+| 403 | Forbidden (bukan pemilik data / CSRF invalid) |
+| 404 | Not Found |
+| 500 | Internal Server Error |
 
-### 1. CREATE TODO
-**Membuat todo baru**
+## Endpoint
 
-- **URL**: `/api/create.php`
-- **Method**: `POST`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: Yes
+### 1. Create Todo
+- URL: `/api/create.php`
+- Method: POST (login + CSRF)
+- Body:
+  - `title` (wajib)
+  - `description` (opsional)
+  - `status` (opsional, default `pending`)
+  - `priority` (opsional)
+  - `energy_level` (opsional)
+  - `tags` (opsional, string id tag dipisah koma, mis. `1,2,3`)
+  - `csrf_token`
+- Response berhasil: `{ "success": true, "id": <todo_id> }`
+- Response gagal (contoh): `{ "success": false, "message": "Title is required" }`
 
-#### Request Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `title` | string | Yes | Judul todo (tidak boleh kosong) |
-| `description` | string | No | Deskripsi/detail todo |
-| `status` | string | No | Status todo: `pending`, `in-progress`, `completed`. Default: `pending` |
-| `priority` | string | No | Prioritas: `low`, `medium`, `high` |
-| `energy_level` | string | No | Level energi yang diperlukan: `low`, `medium`, `high` |
-| `tags` | string | No | ID tag yang dipisahkan dengan koma (contoh: `1,2,3`) |
-| `csrf_token` | string | Yes | CSRF token dari form |
-
-#### Example Request
+Contoh:
 ```bash
-curl -X POST http://localhost/todo-list-app/api/create.php \
+curl -X POST "https://www.dwibudifitriadi.me/api/create.php" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "title=Belajar PHP&description=Pelajari OOP&status=pending&priority=high&energy_level=medium&tags=1,2&csrf_token=YOUR_CSRF_TOKEN"
 ```
 
-#### Success Response (201)
-```json
-{
-  "success": true,
-  "id": 42
-}
-```
+### 2. Get Todo Detail
+- URL: `/api/get.php`
+- Method: GET (login)
+- Query: `id` (wajib, integer)
+- Response berhasil: `{ "success": true, "todo": { id, user_id, title, description, status, created_at } }`
+- Response gagal: 404 jika tidak ditemukan.
 
-#### Error Response (400)
-```json
-{
-  "success": false,
-  "message": "Title is required"
-}
-```
-
----
-
-### 2. GET TODO
-**Mengambil detail todo berdasarkan ID**
-
-- **URL**: `/api/get.php`
-- **Method**: `GET`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: No
-
-#### Query Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | integer | Yes | ID todo yang ingin diambil |
-
-#### Example Request
+Contoh:
 ```bash
-curl http://localhost/todo-list-app/api/get.php?id=42
+curl "https://www.dwibudifitriadi.me/api/get.php?id=42"
 ```
 
-#### Success Response (200)
-```json
-{
-  "success": true,
-  "todo": {
-    "id": 42,
-    "user_id": 1,
-    "title": "Belajar PHP",
-    "description": "Pelajari OOP",
-    "status": "pending",
-    "created_at": "2026-01-01 10:30:00"
-  }
-}
-```
+### 3. Edit Todo
+- URL: `/api/edit.php`
+- Method: POST (login + CSRF)
+- Body:
+  - `id` (wajib)
+  - Opsional: `status`, `title`, `description`, `priority`, `energy_level`
+  - `tags` (opsional; array atau string ID, akan menimpa asosiasi tag yang ada)
+  - `csrf_token`
+- Jika tidak ada field yang diubah, akan mengembalikan `"Nothing to update"`.
+- Response berhasil: `{ "success": true, "affected": 1 }`
 
-#### Error Response (404)
-```json
-{
-  "success": false,
-  "message": "Not found"
-}
-```
-
----
-
-### 3. EDIT TODO
-**Mengupdate todo (status, title, description, priority, energy_level, atau tags)**
-
-- **URL**: `/api/edit.php`
-- **Method**: `POST`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: Yes
-
-#### Request Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | integer | Yes | ID todo yang akan diupdate |
-| `title` | string | No | Judul todo baru |
-| `description` | string | No | Deskripsi baru |
-| `status` | string | No | Status baru: `pending`, `in-progress`, `completed` |
-| `priority` | string | No | Prioritas baru: `low`, `medium`, `high` |
-| `energy_level` | string | No | Level energi baru: `low`, `medium`, `high` |
-| `tags` | array/string | No | ID tag yang dipisahkan dengan koma |
-| `csrf_token` | string | Yes | CSRF token dari form |
-
-#### Example Request
+Contoh:
 ```bash
-curl -X POST http://localhost/todo-list-app/api/edit.php \
+curl -X POST "https://www.dwibudifitriadi.me/api/edit.php" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "id=42&status=in-progress&priority=high&csrf_token=YOUR_CSRF_TOKEN"
 ```
 
-#### Success Response (200)
-```json
-{
-  "success": true,
-  "affected": 1
-}
-```
+### 4. Delete Todo
+- URL: `/api/delete.php`
+- Method: POST (login + CSRF)
+- Body: `id`, `csrf_token`
+- Response berhasil: `{ "success": true, "affected": <jumlah_dihapus> }`
 
-#### Error Response (400)
-```json
-{
-  "success": false,
-  "message": "Nothing to update"
-}
-```
-
----
-
-### 4. DELETE TODO
-**Menghapus todo**
-
-- **URL**: `/api/delete.php`
-- **Method**: `POST`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: Yes
-
-#### Request Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | integer | Yes | ID todo yang akan dihapus |
-| `csrf_token` | string | Yes | CSRF token dari form |
-
-#### Example Request
+Contoh:
 ```bash
-curl -X POST http://localhost/todo-list-app/api/delete.php \
+curl -X POST "https://www.dwibudifitriadi.me/api/delete.php" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "id=42&csrf_token=YOUR_CSRF_TOKEN"
 ```
 
-#### Success Response (200)
-```json
-{
-  "success": true,
-  "affected": 1
-}
-```
+### 5. Tags - List Semua Tag
+- URL: `/api/tags.php`
+- Method: GET (login)
+- Response: array tag `[ { id, name, color } ]`
 
-#### Error Response (400)
-```json
-{
-  "success": false,
-  "message": "Invalid id"
-}
-```
-
----
-
-### 5. TAGS - Get All Tags
-**Mengambil semua tag milik user**
-
-- **URL**: `/api/tags.php`
-- **Method**: `GET`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: No
-
-#### Example Request
+Contoh:
 ```bash
-curl http://localhost/todo-list-app/api/tags.php
+curl "https://www.dwibudifitriadi.me/api/tags.php"
 ```
 
-#### Success Response (200)
-```json
-[
-  {
-    "id": 1,
-    "name": "Work",
-    "color": "#FF5733"
-  },
-  {
-    "id": 2,
-    "name": "Personal",
-    "color": "#33FF57"
-  }
-]
-```
+### 6. Tags - Todos per Tag
+- URL: `/api/tags.php?action=get_todos&tag_id=<id>`
+- Method: GET (login)
+- Response: array todo `[ { id, title, description, status, priority } ]`
 
----
-
-### 6. TAGS - Get Todos for a Tag
-**Mengambil semua todo yang memiliki tag tertentu**
-
-- **URL**: `/api/tags.php`
-- **Method**: `GET`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: No
-
-#### Query Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Harus berisi `get_todos` |
-| `tag_id` | integer | Yes | ID tag |
-
-#### Example Request
+Contoh:
 ```bash
-curl "http://localhost/todo-list-app/api/tags.php?action=get_todos&tag_id=1"
+curl "https://www.dwibudifitriadi.me/api/tags.php?action=get_todos&tag_id=1"
 ```
 
-#### Success Response (200)
-```json
-[
-  {
-    "id": 42,
-    "title": "Belajar PHP",
-    "description": "Pelajari OOP",
-    "status": "pending",
-    "priority": "high"
-  }
-]
-```
+### 7. Tags - Create
+- URL: `/api/tags.php`
+- Method: POST (login + CSRF)
+- Body: `action=create`, `name` (wajib), `color` (opsional, default `#6366f1`), `csrf_token`
+- Response berhasil: `{ "success": true, "tag_id": <id>, "id": <id>, "name": "...", "color": "..." }`
+- Error duplikat: `{ "success": false, "message": "Tag sudah ada" }`
 
----
-
-### 7. TAGS - Create Tag
-**Membuat tag baru**
-
-- **URL**: `/api/tags.php`
-- **Method**: `POST`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: Yes
-
-#### Request Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Harus berisi `create` |
-| `name` | string | Yes | Nama tag (tidak boleh duplikat) |
-| `color` | string | No | Warna hex (default: `#6366f1`) |
-| `csrf_token` | string | Yes | CSRF token dari form |
-
-#### Example Request
+Contoh:
 ```bash
-curl -X POST http://localhost/todo-list-app/api/tags.php \
+curl -X POST "https://www.dwibudifitriadi.me/api/tags.php" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "action=create&name=Urgent&color=%23FF0000&csrf_token=YOUR_CSRF_TOKEN"
 ```
 
-#### Success Response (201)
-```json
-{
-  "success": true,
-  "tag_id": 3,
-  "id": 3,
-  "name": "Urgent",
-  "color": "#FF0000"
-}
-```
+### 8. Tags - Update
+- URL: `/api/tags.php`
+- Method: POST (login + CSRF)
+- Body: `action=update`, `id`, `name`, `color` (opsional), `csrf_token`
+- Response berhasil: `{ "success": true, "message": "Tag updated" }`
 
-#### Error Response (400)
-```json
-{
-  "success": false,
-  "message": "Tag sudah ada"
-}
-```
-
----
-
-### 8. TAGS - Update Tag
-**Mengupdate tag (nama atau warna)**
-
-- **URL**: `/api/tags.php`
-- **Method**: `POST`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: Yes
-
-#### Request Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Harus berisi `update` |
-| `id` | integer | Yes | ID tag yang akan diupdate |
-| `name` | string | Yes | Nama tag baru |
-| `color` | string | No | Warna hex baru (default: `#6366f1`) |
-| `csrf_token` | string | Yes | CSRF token dari form |
-
-#### Example Request
+Contoh:
 ```bash
-curl -X POST http://localhost/todo-list-app/api/tags.php \
+curl -X POST "https://www.dwibudifitriadi.me/api/tags.php" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "action=update&id=3&name=Very Urgent&color=%23FF6600&csrf_token=YOUR_CSRF_TOKEN"
+  -d "action=update&id=3&name=Very%20Urgent&color=%23FF6600&csrf_token=YOUR_CSRF_TOKEN"
 ```
 
-#### Success Response (200)
-```json
-{
-  "success": true,
-  "affected": 1
-}
-```
+### 9. Tags - Delete
+- URL: `/api/tags.php`
+- Method: POST (login + CSRF)
+- Body: `action=delete`, `id`, `csrf_token`
+- Response berhasil: `{ "success": true, "message": "Tag deleted" }`
 
----
-
-### 9. TAGS - Delete Tag
-**Menghapus tag**
-
-- **URL**: `/api/tags.php`
-- **Method**: `POST`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: Yes
-
-#### Request Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Harus berisi `delete` |
-| `id` | integer | Yes | ID tag yang akan dihapus |
-| `csrf_token` | string | Yes | CSRF token dari form |
-
-#### Example Request
+Contoh:
 ```bash
-curl -X POST http://localhost/todo-list-app/api/tags.php \
+curl -X POST "https://www.dwibudifitriadi.me/api/tags.php" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "action=delete&id=3&csrf_token=YOUR_CSRF_TOKEN"
 ```
 
-#### Success Response (200)
-```json
-{
-  "success": true,
-  "affected": 1
-}
-```
+### 10. Todo-Tags - Tambah Tag ke Todo
+- URL: `/api/todo-tags.php`
+- Method: POST (login + CSRF)
+- Body: `action=add`, `todo_id`, `tag_id`, `csrf_token`
+- Response berhasil: `{ "success": true }`
+- Jika duplikat: `{ "success": false, "message": "Tag sudah ditambahkan" }`
 
----
-
-### 10. TODO-TAGS - Add Tag to Todo
-**Menambahkan tag ke todo**
-
-- **URL**: `/api/todo-tags.php`
-- **Method**: `POST`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: Yes
-
-#### Request Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Harus berisi `add` |
-| `todo_id` | integer | Yes | ID todo |
-| `tag_id` | integer | Yes | ID tag yang akan ditambahkan |
-| `csrf_token` | string | Yes | CSRF token dari form |
-
-#### Example Request
+Contoh:
 ```bash
-curl -X POST http://localhost/todo-list-app/api/todo-tags.php \
+curl -X POST "https://www.dwibudifitriadi.me/api/todo-tags.php" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "action=add&todo_id=42&tag_id=1&csrf_token=YOUR_CSRF_TOKEN"
 ```
 
-#### Success Response (200)
-```json
-{
-  "success": true
-}
-```
+### 11. Todo-Tags - Hapus Tag dari Todo
+- URL: `/api/todo-tags.php`
+- Method: POST (login + CSRF)
+- Body: `action=remove`, `todo_id`, `tag_id`, `csrf_token`
+- Response berhasil: `{ "success": true }`
 
----
-
-### 11. TODO-TAGS - Remove Tag from Todo
-**Menghapus tag dari todo**
-
-- **URL**: `/api/todo-tags.php`
-- **Method**: `POST`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: Yes
-
-#### Request Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Harus berisi `remove` |
-| `todo_id` | integer | Yes | ID todo |
-| `tag_id` | integer | Yes | ID tag yang akan dihapus |
-| `csrf_token` | string | Yes | CSRF token dari form |
-
-#### Example Request
+Contoh:
 ```bash
-curl -X POST http://localhost/todo-list-app/api/todo-tags.php \
+curl -X POST "https://www.dwibudifitriadi.me/api/todo-tags.php" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "action=remove&todo_id=42&tag_id=1&csrf_token=YOUR_CSRF_TOKEN"
 ```
 
-#### Success Response (200)
-```json
-{
-  "success": true
-}
-```
+### 12. Todo-Tags - Daftar Tag per Todo
+- URL: `/api/todo-tags.php`
+- Method: POST (login + CSRF)
+- Body: `action=get`, `todo_id`, `csrf_token`
+- Response: `{ "success": true, "tags": [ { id, name, color } ] }`
 
----
-
-### 12. TODO-TAGS - Get Tags for Todo
-**Mengambil semua tag yang dimiliki oleh todo**
-
-- **URL**: `/api/todo-tags.php`
-- **Method**: `POST`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: Yes
-
-#### Request Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Harus berisi `get` |
-| `todo_id` | integer | Yes | ID todo |
-| `csrf_token` | string | Yes | CSRF token dari form |
-
-#### Example Request
+Contoh:
 ```bash
-curl -X POST http://localhost/todo-list-app/api/todo-tags.php \
+curl -X POST "https://www.dwibudifitriadi.me/api/todo-tags.php" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "action=get&todo_id=42&csrf_token=YOUR_CSRF_TOKEN"
 ```
 
-#### Success Response (200)
-```json
-{
-  "success": true,
-  "tags": [
-    {
-      "id": 1,
-      "name": "Work",
-      "color": "#FF5733"
-    }
-  ]
-}
-```
+### 13. Work Sessions - Mulai Sesi
+- URL: `/api/work-sessions.php`
+- Method: POST (login + CSRF)
+- Body: `action=start`, `todo_id`, `duration` (menit, default 25), `csrf_token`
+- Response berhasil: `{ "success": true, "session_id": <id> }`
 
----
-
-### 13. WORK-SESSIONS - Start Work Session
-**Memulai sesi kerja baru (Pomodoro tracking)**
-
-- **URL**: `/api/work-sessions.php`
-- **Method**: `POST`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: Yes
-
-#### Request Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Harus berisi `start` |
-| `todo_id` | integer | Yes | ID todo yang dikerjakan |
-| `duration` | integer | No | Durasi sesi dalam menit (default: 25) |
-| `csrf_token` | string | Yes | CSRF token dari form |
-
-#### Example Request
+Contoh:
 ```bash
-curl -X POST http://localhost/todo-list-app/api/work-sessions.php \
+curl -X POST "https://www.dwibudifitriadi.me/api/work-sessions.php" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "action=start&todo_id=42&duration=25&csrf_token=YOUR_CSRF_TOKEN"
 ```
 
-#### Success Response (201)
-```json
-{
-  "success": true,
-  "session_id": 15
-}
-```
+### 14. Work Sessions - Selesaikan Sesi
+- URL: `/api/work-sessions.php`
+- Method: POST (login + CSRF)
+- Body: `action=complete`, `session_id`, `todo_id`, `actual_duration` (detik, opsional), `csrf_token`
+- Response berhasil: `{ "success": true }`
 
----
-
-### 14. WORK-SESSIONS - Complete Work Session
-**Menyelesaikan sesi kerja**
-
-- **URL**: `/api/work-sessions.php`
-- **Method**: `POST`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: Yes
-
-#### Request Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Harus berisi `complete` |
-| `session_id` | integer | Yes | ID sesi yang akan diselesaikan |
-| `todo_id` | integer | Yes | ID todo |
-| `actual_duration` | integer | No | Durasi aktual dalam detik |
-| `csrf_token` | string | Yes | CSRF token dari form |
-
-#### Example Request
+Contoh:
 ```bash
-curl -X POST http://localhost/todo-list-app/api/work-sessions.php \
+curl -X POST "https://www.dwibudifitriadi.me/api/work-sessions.php" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "action=complete&session_id=15&todo_id=42&actual_duration=1500&csrf_token=YOUR_CSRF_TOKEN"
 ```
 
-#### Success Response (200)
-```json
-{
-  "success": true
-}
-```
+### 15. Work Sessions - Statistik per Todo
+- URL: `/api/work-sessions.php`
+- Method: POST (login + CSRF)
+- Body: `action=get_stats`, `todo_id`, `csrf_token`
+- Response: `{ "success": true, "total_sessions": <int>, "total_minutes": <int> }`
 
----
-
-### 15. WORK-SESSIONS - Get Stats (Per Todo)
-**Mengambil statistik sesi kerja untuk todo tertentu**
-
-- **URL**: `/api/work-sessions.php`
-- **Method**: `POST`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: Yes
-
-#### Request Parameters
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | string | Yes | Harus berisi `get_stats` |
-| `todo_id` | integer | Yes | ID todo |
-| `csrf_token` | string | Yes | CSRF token dari form |
-
-#### Example Request
+Contoh:
 ```bash
-curl -X POST http://localhost/todo-list-app/api/work-sessions.php \
+curl -X POST "https://www.dwibudifitriadi.me/api/work-sessions.php" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "action=get_stats&todo_id=42&csrf_token=YOUR_CSRF_TOKEN"
 ```
 
-#### Success Response (200)
-```json
-{
-  "success": true,
-  "total_sessions": 5,
-  "total_minutes": 125
-}
-```
+### 16. Work Sessions - Statistik Semua Sesi User
+- URL: `/api/work-sessions.php`
+- Method: GET (login)
+- Response: `{ "success": true, "total_sessions": <int>, "total_minutes": <int> }`
 
----
-
-### 16. WORK-SESSIONS - Get Overall Stats
-**Mengambil statistik sesi kerja untuk semua todo user**
-
-- **URL**: `/api/work-sessions.php`
-- **Method**: `GET`
-- **Auth Required**: Yes (Login)
-- **CSRF Required**: No
-
-#### Example Request
+Contoh:
 ```bash
-curl http://localhost/todo-list-app/api/work-sessions.php
+curl "https://www.dwibudifitriadi.me/api/work-sessions.php"
 ```
 
-#### Success Response (200)
-```json
-{
-  "success": true,
-  "total_sessions": 15,
-  "total_minutes": 375
-}
-```
-
----
-
-## HTTP Status Codes
-
-| Code | Description |
-|------|-------------|
-| `200` | OK - Request berhasil |
-| `201` | Created - Resource berhasil dibuat |
-| `400` | Bad Request - Parameter tidak valid |
-| `401` | Unauthorized - User tidak login |
-| `403` | Forbidden - User tidak memiliki akses atau CSRF token tidak valid |
-| `404` | Not Found - Resource tidak ditemukan |
-| `500` | Internal Server Error - Error di server |
-
----
-
-## Error Handling
-
-Semua response error menggunakan format JSON:
-```json
-{
-  "success": false,
-  "message": "Deskripsi error"
-}
-```
-
-Selalu periksa field `success` untuk mengetahui apakah request berhasil atau tidak.
-
----
-
-## Security Notes
-
-1. **CSRF Protection**: Semua request POST memerlukan valid CSRF token
-2. **User Isolation**: Setiap user hanya bisa mengakses data miliknya sendiri
-3. **Session Required**: User harus terautentikasi untuk akses API
-4. **Input Validation**: Semua input divalidasi di server
-
----
-
-## Examples - JavaScript/jQuery
-
-### Create Todo
+## Contoh JavaScript (jQuery)
 ```javascript
 $.ajax({
   url: 'api/create.php',
@@ -655,72 +251,14 @@ $.ajax({
     tags: '1,2',
     csrf_token: csrfToken
   },
-  success: function(response) {
-    if (response.success) {
-      console.log('Todo created with ID:', response.id);
-    }
+  success: function (res) {
+    if (res.success) console.log('Todo ID:', res.id);
   }
 });
 ```
 
-### Get Todo
-```javascript
-$.ajax({
-  url: 'api/get.php',
-  method: 'GET',
-  data: { id: 42 },
-  success: function(response) {
-    if (response.success) {
-      console.log('Todo:', response.todo);
-    }
-  }
-});
-```
-
-### Update Todo Status
-```javascript
-$.ajax({
-  url: 'api/edit.php',
-  method: 'POST',
-  data: {
-    id: 42,
-    status: 'completed',
-    csrf_token: csrfToken
-  },
-  success: function(response) {
-    if (response.success) {
-      console.log('Todo updated');
-    }
-  }
-});
-```
-
-### Start Work Session
-```javascript
-$.ajax({
-  url: 'api/work-sessions.php',
-  method: 'POST',
-  data: {
-    action: 'start',
-    todo_id: 42,
-    duration: 25,
-    csrf_token: csrfToken
-  },
-  success: function(response) {
-    if (response.success) {
-      console.log('Session started with ID:', response.session_id);
-    }
-  }
-});
-```
-
----
-
-## Contact & Support
-
-Untuk pertanyaan atau masalah terkait API, silakan hubungi tim development.
-
----
-
-**Last Updated**: January 1, 2026
-**API Version**: 1.0
+## Sumber Kode
+- Endpoint todo: [api/create.php](api/create.php), [api/edit.php](api/edit.php), [api/delete.php](api/delete.php), [api/get.php](api/get.php)
+- Tag: [api/tags.php](api/tags.php), [api/todo-tags.php](api/todo-tags.php)
+- Pomodoro: [api/work-sessions.php](api/work-sessions.php)
+- Session & CSRF helper: [includes/session.php](includes/session.php)
